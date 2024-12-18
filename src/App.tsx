@@ -21,6 +21,7 @@ function App() {
   const [inputValue, setInputValue] = useState<number>(0);
   const overlayRef: any = useRef(null);
 
+  const baseURL = "https://api.artic.edu/api/v1";
 
   // useEffect will execute during initial page load or when params change
   useEffect(() => {
@@ -28,7 +29,7 @@ function App() {
     (async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`https://api.artic.edu/api/v1/artworks?page=${params.page}`);
+        const response = await axios.get(`${baseURL}/artworks?page=${params.page}`);
         const fetchedData = response.data.data;
         setTotalRecords(response.data.pagination.total);
         setData(fetchedData);
@@ -39,6 +40,15 @@ function App() {
     })();
   }, [params]);
 
+  // when page changes or pagination changes, value page changes
+  const onPageChange = (e: any) => {
+    setParams({
+      first: e.first,
+      rows: e.rows,
+      page: e.page + 1,
+    });
+  };
+
   // handleSubmit function for selecting no. of multiple rows at once
   const handleSubmit = async (numRows: number) => {
     // selectedRows array for storing all the rows which have to selected
@@ -48,14 +58,14 @@ function App() {
     while (selectedRows.length < numRows && currentPage <= Math.ceil(totalRecords / params.rows)) {
       try {
         // fetches data of current page from API
-        const response = await axios.get(`https://api.artic.edu/api/v1/artworks?page=${currentPage}`);
+        const response = await axios.get(`${baseURL}/artworks?page=${currentPage}`);
         const fetchedData = response.data.data;
         // remaining rows to select from current page
         const remainingRowsToSelect = numRows - selectedRows.length;
 
         // stores rows selected from current page and concatenate it to selectedRows array
-        const selectedFromPage = fetchedData.slice(0, remainingRowsToSelect);
-        selectedRows = selectedRows.concat(selectedFromPage);
+        const rowsToAdd = fetchedData.slice(0, remainingRowsToSelect);
+        selectedRows = selectedRows.concat(rowsToAdd);
 
         currentPage++;
       } catch (error) {
@@ -63,17 +73,9 @@ function App() {
       }
     }
 
-    setSelectedRows([...selectedRows, ...selectedRows]);
+    setSelectedRows(prev => [...prev, ...selectedRows]);
+    overlayRef.current.hide();
   }
-
-  // when page changes or pagination changes, value page changes
-  const onPageChange = (e: any) => {
-    setParams({
-      first: e.first,
-      rows: e.rows,
-      page: e.page + 1,
-    });
-  };
 
   return (
     <>
@@ -91,7 +93,12 @@ function App() {
         onSelectionChange={e => setSelectedRows(e.value)}
       >
         <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
-        <Column header={<PiCaretDown size={24} color='black' onClick={(e) => overlayRef.current.toggle(e)} />} />
+        <Column
+          header={<PiCaretDown
+            size={24}
+            color='black'
+            onClick={(e) => overlayRef.current.toggle(e)} />}
+        />
         <Column field="title" header="Title"></Column>
         <Column field="place_of_origin" header="Place Of Origin"></Column>
         <Column field="artist_display" header="Artist Display"></Column>
@@ -103,11 +110,15 @@ function App() {
       <OverlayPanel ref={overlayRef}>
         <InputText
           value={String(inputValue)}
-          onChange={(e) => setInputValue(Number(e.target.value))}
+          onChange={e => setInputValue(Number(e.target.value))}
           keyfilter="int"
           placeholder="Search rows..."
         />
-        <Button label="Submit" severity="secondary" outlined onClick={() => handleSubmit(inputValue)} />
+        <Button
+          label="Submit"
+          severity="secondary"
+          outlined
+          onClick={() => handleSubmit(inputValue)} />
       </OverlayPanel>
     </>
   );
