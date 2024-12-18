@@ -51,29 +51,36 @@ function App() {
 
   // handleSubmit function for selecting no. of multiple rows at once
   const handleSubmit = async (numRows: number) => {
-    // selectedRows array for storing all the rows which have to selected
-    let selectedRows: any[] = [];
-    let currentPage = params.page;
+    const noOfPages = Math.ceil(numRows / params.rows);
+    const selectedRows: any[] = [];
+    const fetchedPromises = [];
 
-    while (selectedRows.length < numRows && currentPage <= Math.ceil(totalRecords / params.rows)) {
-      try {
-        // fetches data of current page from API
-        const response = await axios.get(`${baseURL}/artworks?page=${currentPage}`);
-        const fetchedData = response.data.data;
-        // remaining rows to select from current page
-        const remainingRowsToSelect = numRows - selectedRows.length;
-
-        // stores rows selected from current page and concatenate it to selectedRows array
-        const rowsToAdd = fetchedData.slice(0, remainingRowsToSelect);
-        selectedRows = selectedRows.concat(rowsToAdd);
-
-        currentPage++;
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-      }
+    // stores the promises to fetch pages data in array
+    for (let i = params.page; i < params.page + noOfPages; i++) {
+        fetchedPromises.push(axios.get(`${baseURL}/artworks?page=${i}`));
     }
 
-    setSelectedRows(prev => [...prev, ...selectedRows]);
+    try {
+        // resolving promises
+        const responses = await Promise.all(fetchedPromises);
+        // loop over responses and stores data in selectedRows array
+        for (const response of responses) {
+            const fetchedData = response.data.data;
+            const remainingRows = numRows - selectedRows.length;
+
+            if (remainingRows > 0) {
+                selectedRows.push(...fetchedData.slice(0, remainingRows));
+            } else {
+                break;
+            }
+        }
+
+        setSelectedRows(prev => [...prev, ...selectedRows]);
+    } 
+    catch (error) {
+        console.error("Error fetching data: ", error);
+    }
+
     overlayRef.current.hide();
   }
 
@@ -97,7 +104,7 @@ function App() {
           header={<PiCaretDown
             size={24}
             color='black'
-            onClick={(e) => overlayRef.current.toggle(e)} />}
+            onClick={e => overlayRef.current.toggle(e)} />}
         />
         <Column field="title" header="Title"></Column>
         <Column field="place_of_origin" header="Place Of Origin"></Column>
